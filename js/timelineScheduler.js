@@ -18,7 +18,7 @@
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
     THE SOFTWARE.
 */
-/*! Project location: https://github.com/Zallist/TimeScheduler */
+/*! Project location: https://github.com/Zallist/self */
 
 // Visual Studio references
 
@@ -26,36 +26,45 @@
 /// <reference path="jquery-ui-1.10.2.custom.min.js" />
 /// <reference path="moment.min.js" />
 
-var TimeScheduler = {
-    Options: {
+/*globals $, moment, document, clearTimeout, setTimeout*/
+var TimeScheduler = function (Config) {
+    'use strict';
+    var self = this;
+    self.Options = {
         /* The function to call to fill up Sections.
-           Sections are cached. To clear cache, use TimelineScheduler.FillSections(true);
-           Callback accepts an array of sections in the format {
-            id: num,
-            name: string
-           }
-        */
-        GetSections: function (callback) { },
+         Sections are cached. To clear cache, use TimelineScheduler.FillSections(true);
+         Callback accepts an array of sections in the format {
+         id: num,
+         name: string
+         }
+         */
+        GetSections: function (callback) {
+            callback("Undefined function");
+        },
 
         /* The function to call to fill up Items.
-           Callback accepts an array of items in the format 
-           {
-                id: num,
-                name: string,
-                sectionID: ID of Section,
-                start: Moment of the start,
-                end: Moment of the end,
-                classes: string of classes to add,
-                events: [
-                    {
-                        label: string to show in tooltip,
-                        at: Moment of event,
-                        classes: string of classes to add
-                    }
-                ]
-            }
-        */
-        GetSchedule: function (callback, start, end) { },
+         Callback accepts an array of items in the format
+         {
+         id: num,
+         name: string,
+         sectionID: ID of Section,
+         start: Moment of the start,
+         end: Moment of the end,
+         classes: string of classes to add,
+         events: [
+         {
+         label: string to show in tooltip,
+         at: Moment of event,
+         classes: string of classes to add
+         }
+         ]
+         }
+         */
+        GetSchedule: function (callback, start, end) {
+            start = false;
+            end = false;
+            callback("undefined function", start, end);
+        },
 
         /* The Moment to start the calendar at. RECOMMENDED: .startOf('day') */
         Start: moment(),
@@ -67,13 +76,13 @@ var TimeScheduler = {
         LowerFormat: 'DD-MMM-YYYY HH:mm',
 
         /* An array of Periods to be selectable by the user in the form of {
-	        Name: unique string name to be used when selecting,
-            Label: string to display on the Period Button,
-            TimeframePeriod: number of minutes between intervals on the scheduler,
-            TimeframeOverall: number of minutes between the Start of the period and the End of the period,
-            TimeframeHeaderFormats: Array of formats to use for headers.
-        }
-        */
+         Name: unique string name to be used when selecting,
+         Label: string to display on the Period Button,
+         TimeframePeriod: number of minutes between intervals on the scheduler,
+         TimeframeOverall: number of minutes between the Start of the period and the End of the period,
+         TimeframeHeaderFormats: Array of formats to use for headers.
+         }
+         */
         Periods: [
             {
                 Name: '2 days',
@@ -107,7 +116,7 @@ var TimeScheduler = {
 
         /* The minimum height of each section */
         MinRowHeight: 40,
-        
+
         /* Whether to show the Current Time or not */
         ShowCurrentTime: true,
 
@@ -160,7 +169,9 @@ var TimeScheduler = {
             ItemEventMouseEnter: null,
 
             // function (eventData, itemData)
-            ItemEventMouseLeave: null
+            ItemEventMouseLeave: null,
+
+            ItemEventClicked: null
         },
 
         // Should dragging be enabled?
@@ -169,32 +180,29 @@ var TimeScheduler = {
         // Should resizing be enabled?
         AllowResizing: false,
 
+        AllowCollapseSections : true,
+
         // Disable items on moving?
         DisableOnMove: true,
 
         // A given max height for the calendar, if unspecified, will expand forever
-        MaxHeight: null
-    },
+        MaxHeight: null,
 
-    Wrapper: null,
-
-    HeaderWrap: null,
-    TableWrap: null,
-
-    ContentHeaderWrap: null,
-    ContentWrap: null,
-
-    TableHeader: null,
-    TableContent: null,
-    SectionWrap: null,
-
-    Table: null,
-    Sections: {},
-
-    CachedSectionResult: null,
-    CachedScheduleResult: null,
-
-    SetupPrototypes: function () {
+        UseSectionsWrapper: true
+    };
+    self.Wrapper = null;
+    self.HeaderWrap = null;
+    self.TableWrap = null;
+    self.ContentHeaderWrap = null;
+    self.ContentWrap = null;
+    self.TableHeader = null;
+    self.TableContent = null;
+    self.SectionWrap = null;
+    self.Table = null;
+    self.Sections = {};
+    self.CachedSectionResult = null;
+    self.CachedScheduleResult = null;
+    self.SetupPrototypes = function () {
         moment.fn.tsAdd = function (input, val) {
             var dur;
             // switch args to support add('s', 1) and add(1, 's')
@@ -205,8 +213,7 @@ var TimeScheduler = {
             }
             this.tsAddOrSubtractDurationFromMoment(this, dur, 1);
             return this;
-        }
-
+        };
         moment.fn.tsSubtract = function (input, val) {
             var dur;
             // switch args to support subtract('s', 1) and subtract(1, 's')
@@ -217,8 +224,7 @@ var TimeScheduler = {
             }
             this.tsAddOrSubtractDurationFromMoment(this, dur, -1);
             return this;
-        }
-
+        };
         // Replace the AddOrSubtract function so that zoning is not taken into account at all
         moment.fn.tsAddOrSubtractDurationFromMoment = function (mom, duration, isAdding) {
             var ms = duration._milliseconds,
@@ -239,64 +245,66 @@ var TimeScheduler = {
                     .month(mom.month() + M * isAdding)
                     .date(Math.min(currentDate, mom.daysInMonth()));
             }
-        }
-    },
+        };
+    };
 
     /* Initializes the Timeline Scheduler with the given opts. If omitted, defaults are used. */
     /* This should be used to recreate the scheduler with new defaults or refill items */
-    Init: function (overrideCache) {
-        TimeScheduler.SetupPrototypes();
+    self.Init = function (overrideCache) {
+        self.SetupPrototypes();
 
-        TimeScheduler.Options.Start = moment(TimeScheduler.Options.Start);
+        self.Options.Start = moment(self.Options.Start);
 
-        TimeScheduler.Options.Element.find('.ui-draggable').draggable('destroy');
-        TimeScheduler.Options.Element.empty();
+        self.Options.Element.find('.ui-draggable').draggable('destroy');
+        self.Options.Element.empty();
 
-        TimeScheduler.Wrapper = $(document.createElement('div'))
+        self.Wrapper = $(document.createElement('div'))
             .addClass('time-sch-wrapper')
-            .appendTo(TimeScheduler.Options.Element);
+            .appendTo(self.Options.Element);
 
-        TimeScheduler.HeaderWrap = $(document.createElement('div'))
+        self.HeaderWrap = $(document.createElement('div'))
             .addClass('time-sch-header-wrapper time-sch-clearfix')
-            .appendTo(TimeScheduler.Wrapper);
+            .appendTo(self.Wrapper);
 
-        TimeScheduler.TableWrap = $(document.createElement('div'))
+        self.TableWrap = $(document.createElement('div'))
             .addClass('time-sch-table-wrapper')
-            .appendTo(TimeScheduler.Wrapper);
-        
-        TimeScheduler.CreateCalendar();
-        TimeScheduler.FillSections(overrideCache);
-    },
+            .appendTo(self.Wrapper);
+        self.CreateCalendar();
 
-    GetSelectedPeriod: function () {
-        var period;
+        self.FillSections(overrideCache);
+    };
 
-        for (var i = 0; i < TimeScheduler.Options.Periods.length; i++) {
-            if (TimeScheduler.Options.Periods[i].Name === TimeScheduler.Options.SelectedPeriod) {
-                period = TimeScheduler.Options.Periods[i];
+    self.GetSelectedPeriod = function () {
+        var period,
+            i;
+
+        for (i = 0; i < self.Options.Periods.length; i++) {
+            if (self.Options.Periods[i].Name === self.Options.SelectedPeriod) {
+                period = self.Options.Periods[i];
                 break;
             }
         }
 
         if (!period) {
-            period = TimeScheduler.Options.Periods[0];
-            TimeScheduler.SelectPeriod(period.Name);
+            period = self.Options.Periods[0];
+            self.SelectPeriod(period.Name);
         }
 
         return period;
-    },
+    };
 
-    GetEndOfPeriod: function (start, period) {
+    self.GetEndOfPeriod = function (start, period) {
         return moment(start).tsAdd('minutes', period.TimeframeOverall);
-    },
+    };
 
-    AddHeaderClasses: function (td, columnCount, specificHeader) {
-        var trs, trArray, tr;
-        var tdArray, foundTD;
-        var prevIndex, nextIndex, colspan;
-        var complete, isEven;
-        
-        trs = TimeScheduler.TableHeader.find('tr');
+    self.AddHeaderClasses = function (td, columnCount, specificHeader) {
+        var trs, trArray, tr,
+            tdArray, foundTD,
+            prevIndex, nextIndex, colspan,
+            complete, isEven,
+            trCount,
+            tdCount;
+        trs = self.TableHeader.find('tr');
 
         if (specificHeader !== undefined) {
             trs = $(trs.get(specificHeader));
@@ -305,22 +313,21 @@ var TimeScheduler = {
         if (trs.length && trs.length > 0) {
             trArray = $.makeArray(trs);
 
-            for (var trCount = 0; trCount < trArray.length; trCount++) {
+            for (trCount = 0; trCount < trArray.length; trCount++) {
                 complete = false;
                 nextIndex = 0;
                 tr = $(trArray[trCount]);
                 tdArray = $.makeArray(tr.find('.time-sch-date-header'));
 
-                for (var tdCount = 0; tdCount < tdArray.length && !complete; tdCount++) {
+                for (tdCount = 0; tdCount < tdArray.length && !complete; tdCount++) {
                     foundTD = $(tdArray[tdCount]);
 
                     colspan = Number(foundTD.attr('colspan'));
                     if (colspan && !isNaN(colspan) && colspan > 0) {
-                        prevIndex = (nextIndex ? nextIndex : 0);
+                        prevIndex = nextIndex || 0;
                         nextIndex = prevIndex + colspan;
-                    }
-                    else {
-                        prevIndex = (nextIndex ? nextIndex : 0);
+                    } else {
+                        prevIndex = nextIndex || 0;
                         nextIndex = prevIndex + 1;
                     }
 
@@ -345,50 +352,54 @@ var TimeScheduler = {
                 }
             }
         }
-    },
+    };
 
-    CreateCalendar: function () {
-        var tr, td, header;
-        var minuteDiff, splits, period, end;
-        var thisTime, prevDate, fThisTime, fPrevDate, colspan;
-        var currentTimeIndex;
+    self.CreateCalendar = function () {
+        var tr, td, header,
+            minuteDiff, splits, period, end,
+            thisTime, prevDate, fThisTime, fPrevDate, colspan,
+            /*this is declared to avoid namespace pollution*/
+            isEven,
+            currentTimeIndex,
+            headerCount,
+            i,
+            prevHeader;
 
         colspan = 0;
 
-        period = TimeScheduler.GetSelectedPeriod();
-        end = TimeScheduler.GetEndOfPeriod(TimeScheduler.Options.Start, period);
+        period = self.GetSelectedPeriod();
+        end = self.GetEndOfPeriod(self.Options.Start, period);
 
-        minuteDiff = Math.abs(TimeScheduler.Options.Start.diff(end, 'minutes'));
+        minuteDiff = Math.abs(self.Options.Start.diff(end, 'minutes'));
         splits = (minuteDiff / period.TimeframePeriod);
 
-        TimeScheduler.ContentHeaderWrap = $(document.createElement('div'))
+        self.ContentHeaderWrap = $(document.createElement('div'))
             .addClass('time-sch-content-header-wrap')
-            .appendTo(TimeScheduler.TableWrap);
+            .appendTo(self.TableWrap);
 
-        TimeScheduler.ContentWrap = $(document.createElement('div'))
+        self.ContentWrap = $(document.createElement('div'))
             .addClass('time-sch-content-wrap')
-            .appendTo(TimeScheduler.TableWrap);
+            .appendTo(self.TableWrap);
 
-        TimeScheduler.TableHeader = $(document.createElement('table'))
+        self.TableHeader = $(document.createElement('table'))
             .addClass('time-sch-table time-sch-table-header')
-            .appendTo(TimeScheduler.ContentHeaderWrap);
+            .appendTo(self.ContentHeaderWrap);
 
-        TimeScheduler.TableContent = $(document.createElement('table'))
+        self.TableContent = $(document.createElement('table'))
             .addClass('time-sch-table time-sch-table-content')
-            .appendTo(TimeScheduler.ContentWrap);
+            .appendTo(self.ContentWrap);
 
-        TimeScheduler.SectionWrap = $(document.createElement('div'))
+        self.SectionWrap = $(document.createElement('div'))
             .addClass('time-sch-section-wrapper')
-            .appendTo(TimeScheduler.ContentWrap);
+            .appendTo(self.ContentWrap);
 
         if (period.Classes) {
-            TimeScheduler.TableWrap.toggleClass(period.Classes, true);
+            self.TableWrap.toggleClass(period.Classes, true);
         }
 
-        for (var headerCount = 0; headerCount < period.TimeframeHeaders.length; headerCount++) {
+        for (headerCount = 0; headerCount < period.TimeframeHeaders.length; headerCount++) {
             prevDate = null;
             fPrevDate = null;
-
             isEven = true;
             colspan = 0;
             currentTimeIndex = 0;
@@ -397,14 +408,14 @@ var TimeScheduler = {
 
             tr = $(document.createElement('tr'))
                 .addClass('time-sch-times time-sch-times-header-' + headerCount)
-                .appendTo(TimeScheduler.TableHeader);
+                .appendTo(self.TableHeader);
 
             td = $(document.createElement('td'))
                 .addClass('time-sch-section time-sch-section-header')
                 .appendTo(tr);
 
-            for (var i = 0; i < splits; i++) {
-                thisTime = moment(TimeScheduler.Options.Start)
+            for (i = 0; i < splits; i++) {
+                thisTime = moment(self.Options.Start)
                     .tsAdd('minutes', (i * period.TimeframePeriod));
 
                 fThisTime = thisTime.format(header);
@@ -430,14 +441,14 @@ var TimeScheduler = {
                         .addClass('time-sch-date time-sch-date-header')
                         .append(fThisTime)
                         .appendTo(tr);
-                    
-                    td  .addClass('time-sch-header-' + headerCount + '-date-start')
+
+                    td.addClass('time-sch-header-' + headerCount + '-date-start')
                         .addClass('time-sch-header-' + headerCount + '-date-end')
                         .addClass('time-sch-header-' + headerCount + '-date-column-' + currentTimeIndex)
                         .addClass('time-sch-header-' + headerCount + '-date-' + ((currentTimeIndex % 2 === 0) ? 'even' : 'odd'));
 
-                    for (var prevHeader = 0; prevHeader < headerCount; prevHeader++) {
-                        TimeScheduler.AddHeaderClasses(td, i, prevHeader);
+                    for (prevHeader = 0; prevHeader < headerCount; prevHeader++) {
+                        self.AddHeaderClasses(td, i, prevHeader);
                     }
 
                     currentTimeIndex += 1;
@@ -449,14 +460,64 @@ var TimeScheduler = {
             td.attr('colspan', colspan);
         }
 
-        TimeScheduler.FillHeader();
-    },
+        self.FillHeader();
+    };
 
-    CreateSections: function (sections) {
-        var timeCount, tr, td, sectionContainer, headers, i;
+    function drawSingleSection(i, timeCount, sectionToDraw, sectionGroupId) {
+        var tr, sectionContainer, td, time, icon;
+        tr = $(document.createElement('tr'))
+            .addClass('time-sch-section-row')
+            .addClass(i % 2 === 0 ? 'time-sch-section-even' : 'time-sch-section-odd')
+            .css('height', self.Options.MinRowHeight)
+            .appendTo(self.TableContent);
+
+        sectionContainer = $(document.createElement('div'))
+            .addClass('time-sch-section-container')
+            .css('height', self.Options.MinRowHeight)
+            .data('section', sectionToDraw)
+            .appendTo(self.SectionWrap);
+
+        icon = $(document.createElement('i'));
+        td = $(document.createElement('td'));
+        td.addClass('time-sch-section time-sch-section-content');
+        td.data('section', sectionToDraw);
+        td.append(icon);
+        td.append(sectionToDraw.name);
+        td.appendTo(tr);
+        if (sectionToDraw.isHead !== true) {
+            tr.attr("sectionGroup", sectionGroupId);
+            sectionContainer.attr("sectionGroup", sectionGroupId);
+            for (time = 0; time < timeCount; time++) {
+                td = $(document.createElement('td'))
+                    .addClass('time-sch-date time-sch-date-content')
+                    .appendTo(tr);
+                self.AddHeaderClasses(td, time);
+            }
+        } else {
+            icon.addClass("fa fa-sort-asc");
+            tr.addClass('time-sch-section-group-head');
+            if (self.Options.AllowCollapseSections) {
+                tr.click(function (event) {
+                    if (icon.hasClass("fa-sort-asc")) {
+                        icon.removeClass("fa-sort-asc").addClass("fa fa-sort-desc");
+                    } else {
+                        icon.removeClass("fa-sort-desc").addClass("fa fa-sort-asc");
+                    }
+                    $("[sectionGroup='" + sectionGroupId + "']").toggle('slow');
+                });
+            }
+        }
+        self.Sections[sectionToDraw.id] = {
+            row: tr,
+            container: sectionContainer
+        };
+    }
+
+    self.CreateSections = function (sections) {
+        var timeCount, headers, i, tmpHeadSectionId;
 
         timeCount = 1;
-        headers = $.makeArray(TimeScheduler.TableHeader.find('tr'));
+        headers = $.makeArray(self.TableHeader.find('tr'));
 
         for (i = 0; i < headers.length; i++) {
             if (timeCount < $(headers[i]).find('.time-sch-date-header').length) {
@@ -465,111 +526,87 @@ var TimeScheduler = {
         }
 
         for (i = 0; i < sections.length; i++) {
-            tr = $(document.createElement('tr'))
-                .addClass('time-sch-section-row')
-                .addClass(i % 2 === 0 ? 'time-sch-section-even' : 'time-sch-section-odd')
-                .css('height', TimeScheduler.Options.MinRowHeight)
-                .appendTo(TimeScheduler.TableContent);
-
-            sectionContainer = $(document.createElement('div'))
-                .addClass('time-sch-section-container')
-                .css('height', TimeScheduler.Options.MinRowHeight)
-                .data('section', sections[i])
-                .appendTo(TimeScheduler.SectionWrap);
-
-            td = $(document.createElement('td'))
-                .addClass('time-sch-section time-sch-section-content')
-                .data('section', sections[i])
-                .append(sections[i].name)
-                .appendTo(tr);
-
-            for (time = 0; time < timeCount; time++) {
-                td = $(document.createElement('td'))
-                    .addClass('time-sch-date time-sch-date-content')
-                    .appendTo(tr);
-
-                TimeScheduler.AddHeaderClasses(td, time);
+            if (sections[i].isHead === true) {
+                tmpHeadSectionId = sections[i].id;
             }
-
-            TimeScheduler.Sections[sections[i].id] = {
-                row: tr,
-                container: sectionContainer
-            };
+            drawSingleSection(i, timeCount, sections[i], tmpHeadSectionId);
         }
 
-        TimeScheduler.SectionWrap.css({
-            left: TimeScheduler.Options.Element.find('.time-sch-section').outerWidth()
+        self.SectionWrap.css({
+            left: self.Options.Element.find('.time-sch-section').outerWidth()
         });
 
-        if (TimeScheduler.Options.ShowCurrentTime) {
-            TimeScheduler.ShowCurrentTime();
+        if (self.Options.ShowCurrentTime) {
+            self.ShowCurrentTime();
         }
-    },
+    };
 
-    ShowCurrentTimeHandle: null,
-    ShowCurrentTime: function () {
+    self.ShowCurrentTimeHandle = null;
+    self.ShowCurrentTime = function () {
         var currentTime, currentTimeElem, minuteDiff, currentDiff, end;
 
         // Stop any other timeouts happening
-        if (TimeScheduler.ShowCurrentTimeHandle) {
-            clearTimeout(TimeScheduler.ShowCurrentTimeHandle);
+        if (self.ShowCurrentTimeHandle) {
+            clearTimeout(self.ShowCurrentTimeHandle);
         }
 
         currentTime = moment();
-        end = TimeScheduler.GetEndOfPeriod(TimeScheduler.Options.Start, TimeScheduler.GetSelectedPeriod());
-        minuteDiff = Math.abs(TimeScheduler.Options.Start.diff(end, 'minutes'));
-        currentDiff = Math.abs(TimeScheduler.Options.Start.diff(currentTime, 'minutes'));
+        end = self.GetEndOfPeriod(self.Options.Start, self.GetSelectedPeriod());
+        minuteDiff = Math.abs(self.Options.Start.diff(end, 'minutes'));
+        currentDiff = Math.abs(self.Options.Start.diff(currentTime, 'minutes'));
 
-        currentTimeElem = TimeScheduler.Options.Element.find('.time-sch-current-time');
+        currentTimeElem = self.Options.Element.find('.time-sch-current-time');
         currentTimeElem.remove();
 
-        if (currentTime >= TimeScheduler.Options.Start && currentTime <= end) {
+        if (currentTime >= self.Options.Start && currentTime <= end) {
             currentTimeElem = $(document.createElement('div'))
                 .addClass('time-sch-current-time')
                 .css('left', ((currentDiff / minuteDiff) * 100) + '%')
-                .attr('title', currentTime.format(TimeScheduler.Options.LowerFormat))
-                .appendTo(TimeScheduler.SectionWrap);
+                .attr('title', currentTime.format(self.Options.LowerFormat))
+                .appendTo(self.SectionWrap);
         }
 
         // Since we're only comparing minutes, we may as well only check once every 30 seconds
-        TimeScheduler.ShowCurrentTimeHandle = setTimeout(TimeScheduler.ShowCurrentTime, 30000);
-    },
+        self.ShowCurrentTimeHandle = setTimeout(self.ShowCurrentTime, 30000);
+    };
 
-    CreateItems: function (items) {
-        var item, event, section, itemElem, eventElem, itemContent, itemName, itemIcon;
-        var minuteDiff, splits, itemDiff, itemSelfDiff, eventDiff, calcTop, calcLeft, calcWidth, foundStart, foundEnd;
-        var inSection = {}, foundPos, elem, prevElem, needsNewRow;
-        var period, end, i;
+    self.CreateItems = function (items) {
+        var item, event, section, itemElem, eventElem, itemContent, itemName, itemIcon,
+            minuteDiff, splits, itemDiff, itemSelfDiff, eventDiff, calcTop, calcLeft, calcWidth, foundStart, foundEnd,
+            inSection = {}, foundPos, elem, prevElem, needsNewRow,
+            period, end, i, ev, pos, prop,
+            elemTop, elemBottom, prev,
+            prevElemTop, prevElemBottom;
 
-        period = TimeScheduler.GetSelectedPeriod();
-        end = TimeScheduler.GetEndOfPeriod(TimeScheduler.Options.Start, period);
+        period = self.GetSelectedPeriod();
+        end = self.GetEndOfPeriod(self.Options.Start, period);
 
-        minuteDiff = Math.abs(TimeScheduler.Options.Start.diff(end, 'minutes'));
+        minuteDiff = Math.abs(self.Options.Start.diff(end, 'minutes'));
 
         for (i = 0; i < items.length; i++) {
             item = items[i];
-            section = TimeScheduler.Sections[item.sectionID];
+            section = self.Sections[item.sectionID];
 
             if (section) {
                 if (!inSection[item.sectionID]) {
                     inSection[item.sectionID] = [];
                 }
 
-                if (item.start <= end && item.end >= TimeScheduler.Options.Start) {
+                if (item.start <= end && item.end >= self.Options.Start) {
                     foundPos = null;
 
-                    foundStart = moment(Math.max(item.start, TimeScheduler.Options.Start));
+                    foundStart = moment(Math.max(item.start, self.Options.Start));
                     foundEnd = moment(Math.min(item.end, end));
 
-                    itemDiff = foundStart.diff(TimeScheduler.Options.Start, 'minutes');
+                    itemDiff = foundStart.diff(self.Options.Start, 'minutes');
                     itemSelfDiff = Math.abs(foundStart.diff(foundEnd, 'minutes'));
-                    
+
                     calcTop = 0;
                     calcLeft = (itemDiff / minuteDiff) * 100;
                     calcWidth = (itemSelfDiff / minuteDiff) * 100;
 
                     itemElem = $(document.createElement('div'))
-                        .addClass('time-sch-item ' + (item.classes ? item.classes : ''))
+                        .addClass('time-sch-item ' + (item.classes || ''))
                         .css({
                             top: calcTop,
                             left: calcLeft + '%',
@@ -588,21 +625,21 @@ var TimeScheduler = {
                     }
 
                     if (item.events) {
-                        for (var ev = 0; ev < item.events.length; ev++) {
+                        for (ev = 0; ev < item.events.length; ev++) {
                             event = item.events[ev];
 
                             eventDiff = (event.at.diff(foundStart, 'minutes') / itemSelfDiff) * 100;
-                            
+
                             $(document.createElement('div'))
-                                .addClass('time-sch-item-event ' + (event.classes ? event.classes : ''))
+                                .addClass('time-sch-item-event ' + (event.classes || ''))
                                 .css('left', eventDiff + '%')
-                                .attr('title', event.at.format(TimeScheduler.Options.LowerFormat) + ' - ' + event.label)
+                                .attr('title', event.at.format(self.Options.LowerFormat) + ' - ' + event.label)
                                 .data('event', event)
                                 .appendTo(itemElem);
                         }
                     }
 
-                    if (item.start >= TimeScheduler.Options.Start) {
+                    if (item.start >= self.Options.Start) {
                         $(document.createElement('div'))
                             .addClass('time-sch-item-start')
                             .appendTo(itemElem);
@@ -616,7 +653,7 @@ var TimeScheduler = {
                     item.Element = itemElem;
 
                     // Place this in the current section array in its sorted position
-                    for (var pos = 0; pos < inSection[item.sectionID].length; pos++) {
+                    for (pos = 0; pos < inSection[item.sectionID].length; pos++) {
                         if (inSection[item.sectionID][pos].start > item.start) {
                             foundPos = pos;
                             break;
@@ -631,30 +668,28 @@ var TimeScheduler = {
 
                     itemElem.data('item', item);
 
-                    TimeScheduler.SetupItemEvents(itemElem);
+                    self.SetupItemEvents(itemElem);
                 }
             }
         }
-        
+
         // Sort out layout issues so no elements overlap
-        for (var prop in inSection) {
-            section = TimeScheduler.Sections[prop];
+        for (prop in inSection) {
+            section = self.Sections[prop];
 
             for (i = 0; i < inSection[prop].length; i++) {
-                var elemTop, elemBottom;
                 elem = inSection[prop][i];
 
                 // If we're passed the first item in the row
-                for (var prev = 0; prev < i; prev++) {
-                    var prevElemTop, prevElemBottom;
+                for (prev = 0; prev < i; prev++) {
                     prevElem = inSection[prop][prev];
-                        
+
                     prevElemTop = prevElem.Element.position().top;
                     prevElemBottom = prevElemTop + prevElem.Element.outerHeight();
 
                     elemTop = elem.Element.position().top;
                     elemBottom = elemTop + elem.Element.outerHeight();
-                        
+
                     // (elem.start must be between prevElem.start and prevElem.end OR
                     //  elem.end must be between prevElem.start and prevElem.end) AND
                     // (elem.top must be between prevElem.top and prevElem.bottom OR
@@ -663,7 +698,9 @@ var TimeScheduler = {
                         (
                             (prevElem.start <= elem.start && elem.start <= prevElem.end) ||
                             (prevElem.start <= elem.end && elem.end <= prevElem.end)
-                        ) && (
+                        )
+                        &&
+                        (
                             (prevElemTop <= elemTop && elemTop <= prevElemBottom) ||
                             (prevElemTop <= elemBottom && elemBottom <= prevElemBottom)
                         );
@@ -672,7 +709,7 @@ var TimeScheduler = {
                         elem.Element.css('top', prevElemBottom + 1);
                     }
                 }
-                
+
                 elemBottom = elem.Element.position().top + elem.Element.outerHeight() + 1;
 
                 if (elemBottom > section.container.height()) {
@@ -681,58 +718,58 @@ var TimeScheduler = {
                 }
             }
         }
-    },
+    };
 
-    SetupItemEvents: function (itemElem) {
-        if (TimeScheduler.Options.Events.ItemClicked) {
+    self.SetupItemEvents = function (itemElem) {
+
+        if (self.Options.Events.ItemClicked) {
             itemElem.click(function (event) {
                 event.preventDefault();
-                TimeScheduler.Options.Events.ItemClicked.call(this, $(this).data('item'));
+                self.Options.Events.ItemClicked.call(this, $(this).data('item'));
             });
         }
 
-        if (TimeScheduler.Options.Events.ItemMouseEnter) {
+        if (self.Options.Events.ItemMouseEnter) {
             itemElem.mouseenter(function (event) {
-                TimeScheduler.Options.Events.ItemMouseEnter.call(this, $(this).data('item'));
+                self.Options.Events.ItemMouseEnter.call(this, $(this).data('item'));
             });
         }
 
-        if (TimeScheduler.Options.Events.ItemMouseLeave) {
+        if (self.Options.Events.ItemMouseLeave) {
             itemElem.mouseleave(function (event) {
-                TimeScheduler.Options.Events.ItemMouseLeave.call(this, $(this).data('item'));
+                self.Options.Events.ItemMouseLeave.call(this, $(this).data('item'));
             });
         }
 
-        if (TimeScheduler.Options.AllowDragging) {
+        if (self.Options.AllowDragging) {
             itemElem.draggable({
                 helper: 'clone',
                 zIndex: 1,
-                appendTo: TimeScheduler.SectionWrap,
+                appendTo: self.SectionWrap,
                 distance: 5,
                 snap: '.time-sch-section-container',
                 snapMode: 'inner',
                 snapTolerance: 10,
                 drag: function (event, ui) {
-                    var item, start, end;
-                    var period, periodEnd, minuteDiff;
+                    var item, start, end, period, periodEnd, minuteDiff;
 
-                    if (TimeScheduler.Options.Events.ItemMovement) {
-                        period = TimeScheduler.GetSelectedPeriod();
-                        periodEnd = TimeScheduler.GetEndOfPeriod(TimeScheduler.Options.Start, period);
-                        minuteDiff = Math.abs(TimeScheduler.Options.Start.diff(periodEnd, 'minutes'));
+                    if (self.Options.Events.ItemMovement) {
+                        period = self.GetSelectedPeriod();
+                        periodEnd = self.GetEndOfPeriod(self.Options.Start, period);
+                        minuteDiff = Math.abs(self.Options.Start.diff(periodEnd, 'minutes'));
 
                         item = $(event.target).data('item');
 
-                        start = moment(TimeScheduler.Options.Start).tsAdd('minutes', minuteDiff * (ui.helper.position().left / TimeScheduler.SectionWrap.width()));
+                        start = moment(self.Options.Start).tsAdd('minutes', minuteDiff * (ui.helper.position().left / self.SectionWrap.width()));
                         end = moment(start).tsAdd('minutes', Math.abs(item.start.diff(item.end, 'minutes')));
 
                         // If the start is before the start of our calendar, add the offset
-                        if (item.start < TimeScheduler.Options.Start) {
-                            start.tsAdd('minutes', item.start.diff(TimeScheduler.Options.Start, 'minutes'));
-                            end.tsAdd('minutes', item.start.diff(TimeScheduler.Options.Start, 'minutes'));
+                        if (item.start < self.Options.Start) {
+                            start.tsAdd('minutes', item.start.diff(self.Options.Start, 'minutes'));
+                            end.tsAdd('minutes', item.start.diff(self.Options.Start, 'minutes'));
                         }
 
-                        TimeScheduler.Options.Events.ItemMovement.call(this, item, start, end);
+                        self.Options.Events.ItemMovement.call(this, item, start, end);
                     }
                 },
                 start: function (event, ui) {
@@ -741,8 +778,8 @@ var TimeScheduler = {
                     // We only want content to show, not events or resizers
                     ui.helper.children().not('.time-sch-item-content').remove();
 
-                    if (TimeScheduler.Options.Events.ItemMovementStart) {
-                        TimeScheduler.Options.Events.ItemMovementStart.call(this);
+                    if (self.Options.Events.ItemMovementStart) {
+                        self.Options.Events.ItemMovementStart.call(this);
                     }
                 },
                 stop: function (event, ui) {
@@ -750,8 +787,8 @@ var TimeScheduler = {
                         $(this).show();
                     }
 
-                    if (TimeScheduler.Options.Events.ItemMovementEnd) {
-                        TimeScheduler.Options.Events.ItemMovementEnd.call(this);
+                    if (self.Options.Events.ItemMovementEnd) {
+                        self.Options.Events.ItemMovementEnd.call(this);
                     }
                 },
                 cancel: '.time-sch-item-end, .time-sch-item-start, .time-sch-item-event'
@@ -762,23 +799,22 @@ var TimeScheduler = {
                 hoverClass: 'time-sch-droppable-hover',
                 tolerance: 'pointer',
                 drop: function (event, ui) {
-                    var item, sectionID, start, end;
-                    var period, periodEnd, minuteDiff;
+                    var item, sectionID, start, end, period, periodEnd, minuteDiff;
 
-                    period = TimeScheduler.GetSelectedPeriod();
-                    periodEnd = TimeScheduler.GetEndOfPeriod(TimeScheduler.Options.Start, period);
-                    minuteDiff = Math.abs(TimeScheduler.Options.Start.diff(periodEnd, 'minutes'));
+                    period = self.GetSelectedPeriod();
+                    periodEnd = self.GetEndOfPeriod(self.Options.Start, period);
+                    minuteDiff = Math.abs(self.Options.Start.diff(periodEnd, 'minutes'));
 
                     item = ui.draggable.data('item');
                     sectionID = $(this).data('section').id;
 
-                    start = moment(TimeScheduler.Options.Start).tsAdd('minutes', minuteDiff * (ui.helper.position().left / $(this).width()));
+                    start = moment(self.Options.Start).tsAdd('minutes', minuteDiff * (ui.helper.position().left / $(this).width()));
                     end = moment(start).tsAdd('minutes', Math.abs(item.start.diff(item.end, 'minutes')));
 
                     // If the start is before the start of our calendar, add the offset
-                    if (item.start < TimeScheduler.Options.Start) {
-                        start.tsAdd('minutes', item.start.diff(TimeScheduler.Options.Start, 'minutes'));
-                        end.tsAdd('minutes', item.start.diff(TimeScheduler.Options.Start, 'minutes'));
+                    if (item.start < self.Options.Start) {
+                        start.tsAdd('minutes', item.start.diff(self.Options.Start, 'minutes'));
+                        end.tsAdd('minutes', item.start.diff(self.Options.Start, 'minutes'));
                     }
 
                     // Append original to this section and reposition it while we wait
@@ -788,7 +824,7 @@ var TimeScheduler = {
                         top: ui.helper.position().top - $(this).position().top
                     });
 
-                    if (TimeScheduler.Options.DisableOnMove) {
+                    if (self.Options.DisableOnMove) {
                         if (ui.draggable.data('uiDraggable')) {
                             ui.draggable.draggable('disable');
                         }
@@ -798,26 +834,24 @@ var TimeScheduler = {
                     }
                     ui.draggable.show();
 
-                    if (TimeScheduler.Options.Events.ItemDropped) {
+                    if (self.Options.Events.ItemDropped) {
                         // Time for a hack, JQueryUI throws an error if the draggable is removed in a drop
                         setTimeout(function () {
-                            TimeScheduler.Options.Events.ItemDropped.call(this, item, sectionID, start, end);
+                            self.Options.Events.ItemDropped.call(this, item, sectionID, start, end);
                         }, 0);
                     }
                 }
             });
         }
 
-        if (TimeScheduler.Options.AllowResizing) {
+        if (self.Options.AllowResizing) {
             var foundHandles = null;
-            
+
             if (itemElem.find('.time-sch-item-start').length && itemElem.find('.time-sch-item-end').length) {
                 foundHandles = 'e, w';
-            }
-            else if (itemElem.find('.time-sch-item-start').length) {
+            } else if (itemElem.find('.time-sch-item-start').length) {
                 foundHandles = 'w';
-            }
-            else if (itemElem.find('.time-sch-item-end').length) {
+            } else if (itemElem.find('.time-sch-item-end').length) {
                 foundHandles = 'e';
             }
 
@@ -825,67 +859,62 @@ var TimeScheduler = {
                 itemElem.resizable({
                     handles: foundHandles,
                     resize: function (event, ui) {
-                        var item, start, end;
-                        var period, periodEnd, minuteDiff;
+                        var item, start, end, period, periodEnd, minuteDiff;
 
-                        if (TimeScheduler.Options.Events.ItemMovement) {
-                            period = TimeScheduler.GetSelectedPeriod();
-                            periodEnd = TimeScheduler.GetEndOfPeriod(TimeScheduler.Options.Start, period);
-                            minuteDiff = Math.abs(TimeScheduler.Options.Start.diff(periodEnd, 'minutes'));
+                        if (self.Options.Events.ItemMovement) {
+                            period = self.GetSelectedPeriod();
+                            periodEnd = self.GetEndOfPeriod(self.Options.Start, period);
+                            minuteDiff = Math.abs(self.Options.Start.diff(periodEnd, 'minutes'));
 
                             item = $(this).data('item');
 
                             if (ui.position.left !== ui.originalPosition.left) {
                                 // Left handle moved
 
-                                start = moment(TimeScheduler.Options.Start).tsAdd('minutes', minuteDiff * ($(this).position().left / TimeScheduler.SectionWrap.width()));
+                                start = moment(self.Options.Start).tsAdd('minutes', minuteDiff * ($(this).position().left / self.SectionWrap.width()));
                                 end = item.end;
-                            }
-                            else {
+                            } else {
                                 // Right handle moved
 
                                 start = item.start;
-                                end = moment(TimeScheduler.Options.Start).tsAdd('minutes', minuteDiff * (($(this).position().left + $(this).width()) / TimeScheduler.SectionWrap.width()));
+                                end = moment(self.Options.Start).tsAdd('minutes', minuteDiff * (($(this).position().left + $(this).width()) / self.SectionWrap.width()));
                             }
 
-                            TimeScheduler.Options.Events.ItemMovement.call(this, item, start, end);
+                            self.Options.Events.ItemMovement.call(this, item, start, end);
                         }
                     },
                     start: function (event, ui) {
                         // We don't want any events to show
                         $(this).find('.time-sch-item-event').hide();
 
-                        if (TimeScheduler.Options.Events.ItemMovementStart) {
-                            TimeScheduler.Options.Events.ItemMovementStart.call(this);
+                        if (self.Options.Events.ItemMovementStart) {
+                            self.Options.Events.ItemMovementStart.call(this);
                         }
                     },
                     stop: function (event, ui) {
-                        var item, start, end;
-                        var period, periodEnd, minuteDiff, section;
-                        var $this;
+                        var item, start, end, period, periodEnd, minuteDiff, section, $this;
 
                         $this = $(this);
 
-                        period = TimeScheduler.GetSelectedPeriod();
-                        periodEnd = TimeScheduler.GetEndOfPeriod(TimeScheduler.Options.Start, period);
-                        minuteDiff = Math.abs(TimeScheduler.Options.Start.diff(periodEnd, 'minutes'));
+                        period = self.GetSelectedPeriod();
+                        periodEnd = self.GetEndOfPeriod(self.Options.Start, period);
+                        minuteDiff = Math.abs(self.Options.Start.diff(periodEnd, 'minutes'));
 
                         item = $this.data('item');
 
                         if (ui.position.left !== ui.originalPosition.left) {
                             // Left handle moved
 
-                            start = moment(TimeScheduler.Options.Start).tsAdd('minutes', minuteDiff * ($this.position().left / TimeScheduler.SectionWrap.width()));
+                            start = moment(self.Options.Start).tsAdd('minutes', minuteDiff * ($this.position().left / self.SectionWrap.width()));
                             end = item.end;
-                        }
-                        else {
+                        } else {
                             // Right handle moved
 
                             start = item.start;
-                            end = moment(TimeScheduler.Options.Start).tsAdd('minutes', minuteDiff * (($this.position().left + $this.width()) / TimeScheduler.SectionWrap.width()));
+                            end = moment(self.Options.Start).tsAdd('minutes', minuteDiff * (($this.position().left + $this.width()) / self.SectionWrap.width()));
                         }
 
-                        if (TimeScheduler.Options.DisableOnMove) {
+                        if (self.Options.DisableOnMove) {
                             if ($this.data('uiDraggable')) {
                                 $this.draggable('disable');
                             }
@@ -896,79 +925,80 @@ var TimeScheduler = {
                             $this.find('.time-sch-item-event').show();
                         }
 
-                        if (TimeScheduler.Options.Events.ItemMovementEnd) {
-                            TimeScheduler.Options.Events.ItemMovementEnd.call(this);
+                        if (self.Options.Events.ItemMovementEnd) {
+                            self.Options.Events.ItemMovementEnd.call(this);
                         }
 
-                        if (TimeScheduler.Options.Events.ItemResized) {
-                            TimeScheduler.Options.Events.ItemResized.call(this, item, start, end);
+                        if (self.Options.Events.ItemResized) {
+                            self.Options.Events.ItemResized.call(this, item, start, end);
                         }
                     }
                 });
             }
         }
 
-        if (TimeScheduler.Options.Events.ItemEventClicked) {
+        if (self.Options.Events.ItemEventClicked) {
             itemElem.find('.time-sch-item-event').click(function (event) {
-                var itemElem = $(this).closest('.time-sch-item');
+                itemElem = $(this).closest('.time-sch-item');
 
                 event.preventDefault();
-                TimeScheduler.Options.Events.ItemEventClicked.call(this, $(this).data('event'), itemElem.data('item'));
+                self.Options.Events.ItemEventClicked.call(this, $(this).data('event'), itemElem.data('item'));
             });
         }
-        if (TimeScheduler.Options.Events.ItemEventMouseEnter) {
+
+        if (self.Options.Events.ItemEventMouseEnter) {
             itemElem.find('.time-sch-item-event').mouseenter(function (event) {
-                var itemElem = $(this).closest('.time-sch-item');
+                itemElem = $(this).closest('.time-sch-item');
 
                 event.preventDefault();
-                TimeScheduler.Options.Events.ItemEventClicked.call(this, $(this).data('event'), itemElem.data('item'));
+                self.Options.Events.ItemEventClicked.call(this, $(this).data('event'), itemElem.data('item'));
             });
         }
-        if (TimeScheduler.Options.Events.ItemEventMouseLeave) {
+
+        if (self.Options.Events.ItemEventMouseLeave) {
             itemElem.find('.time-sch-item-event').mouseleave(function (event) {
-                var itemElem = $(this).closest('.time-sch-item');
+                itemElem = $(this).closest('.time-sch-item');
 
                 event.preventDefault();
-                TimeScheduler.Options.Events.ItemEventClicked.call(this, $(this).data('event'), itemElem.data('item'));
+                self.Options.Events.ItemEventClicked.call(this, $(this).data('event'), itemElem.data('item'));
             });
         }
-    },
+    };
 
     /* Call this with "true" as override, and sections will be reloaded. Otherwise, cached sections will be used */
-    FillSections: function (override) {
-        if (!TimeScheduler.CachedSectionResult || override) {
-            TimeScheduler.Options.GetSections.call(this, TimeScheduler.FillSections_Callback);
+    self.FillSections = function (override) {
+        if (!self.CachedSectionResult || override) {
+            self.Options.GetSections.call(this, self.FillSections_Callback);
+        } else {
+            self.FillSections_Callback(self.CachedSectionResult);
         }
-        else {
-            TimeScheduler.FillSections_Callback(TimeScheduler.CachedSectionResult);
-        }
-    },
+    };
 
-    FillSections_Callback: function (obj) {
-        TimeScheduler.CachedSectionResult = obj;
+    self.FillSections_Callback = function (obj) {
+        self.CachedSectionResult = obj;
 
-        TimeScheduler.CreateSections(obj);
-        TimeScheduler.FillSchedule();
-    },
+        self.CreateSections(obj);
+        self.FillSchedule();
+    };
 
-    FillSchedule: function () {
+    self.FillSchedule = function () {
         var period, end;
 
-        period = TimeScheduler.GetSelectedPeriod();
-        end = TimeScheduler.GetEndOfPeriod(TimeScheduler.Options.Start, period);
+        period = self.GetSelectedPeriod();
+        end = self.GetEndOfPeriod(self.Options.Start, period);
 
-        TimeScheduler.Options.GetSchedule.call(this, TimeScheduler.FillSchedule_Callback, TimeScheduler.Options.Start, end);
-    },
+        self.Options.GetSchedule.call(this, self.FillSchedule_Callback, self.Options.Start, end);
+    };
 
-    FillSchedule_Callback: function (obj) {
-        TimeScheduler.CachedScheduleResult = obj;
-        TimeScheduler.CreateItems(obj);
-    },
+    self.FillSchedule_Callback = function (obj) {
+        self.CachedScheduleResult = obj;
+        self.CreateItems(obj);
+    };
 
-    FillHeader: function () {
-        var durationString, title, periodContainer, timeContainer, periodButton, timeButton;
-        var selectedPeriod, end, period;
-        
+    self.FillHeader = function () {
+        var durationString, title, periodContainer, timeContainer, periodButton, timeButton,
+            selectedPeriod, end, period, i;
+
         periodContainer = $(document.createElement('div'))
             .addClass('time-sch-period-container');
 
@@ -978,19 +1008,19 @@ var TimeScheduler = {
         title = $(document.createElement('div'))
             .addClass('time-sch-title');
 
-        TimeScheduler.HeaderWrap
+        self.HeaderWrap
             .empty()
             .append(periodContainer, timeContainer, title);
 
-        selectedPeriod = TimeScheduler.GetSelectedPeriod();
-        end = TimeScheduler.GetEndOfPeriod(TimeScheduler.Options.Start, selectedPeriod);
+        selectedPeriod = self.GetSelectedPeriod();
+        end = self.GetEndOfPeriod(self.Options.Start, selectedPeriod);
 
         // Header needs a title
-        // We take away 1 minute 
-        title.text(TimeScheduler.Options.Start.format(TimeScheduler.Options.HeaderFormat) + ' - ' + end.tsAdd('minutes', -1).format(TimeScheduler.Options.HeaderFormat));
+        // We take away 1 minute
+        title.text(self.Options.Start.format(self.Options.HeaderFormat) + ' - ' + end.tsAdd('minutes', -1).format(self.Options.HeaderFormat));
 
-        for (var i = 0; i < TimeScheduler.Options.Periods.length; i++) {
-            period = TimeScheduler.Options.Periods[i];
+        for (i = 0; i < self.Options.Periods.length; i++) {
+            period = self.Options.Periods[i];
 
             $(document.createElement('a'))
                 .addClass('time-sch-period-button time-sch-button')
@@ -998,31 +1028,31 @@ var TimeScheduler = {
                 .attr('href', '#')
                 .append(period.Label)
                 .data('period', period)
-                .click(TimeScheduler.Period_Clicked)
+                .click(self.Period_Clicked)
                 .appendTo(periodContainer);
         }
 
-        if (TimeScheduler.Options.ShowGoto) {
+        if (self.Options.ShowGoto) {
             $(document.createElement('a'))
                 .addClass('time-sch-time-button time-sch-time-button-goto time-sch-button')
                 .attr({
                     href: '#',
-                    title: TimeScheduler.Options.Text.GotoButtonTitle
+                    title: self.Options.Text.GotoButtonTitle
                 })
-                .append(TimeScheduler.Options.Text.GotoButton)
-                .click(TimeScheduler.GotoTimeShift_Clicked)
+                .append(self.Options.Text.GotoButton)
+                .click(self.GotoTimeShift_Clicked)
                 .appendTo(timeContainer);
         }
 
-        if (TimeScheduler.Options.ShowToday) {
+        if (self.Options.ShowToday) {
             $(document.createElement('a'))
                 .addClass('time-sch-time-button time-sch-time-button-today time-sch-button')
                 .attr({
                     href: '#',
-                    title: TimeScheduler.Options.Text.TodayButtonTitle
+                    title: self.Options.Text.TodayButtonTitle
                 })
-                .append(TimeScheduler.Options.Text.TodayButton)
-                .click(TimeScheduler.TimeShift_Clicked)
+                .append(self.Options.Text.TodayButton)
+                .click(self.TimeShift_Clicked)
                 .appendTo(timeContainer);
         }
 
@@ -1030,24 +1060,24 @@ var TimeScheduler = {
             .addClass('time-sch-time-button time-sch-time-button-prev time-sch-button')
             .attr({
                 href: '#',
-                title: TimeScheduler.Options.Text.PrevButtonTitle
+                title: self.Options.Text.PrevButtonTitle
             })
-            .append(TimeScheduler.Options.Text.PrevButton)
-            .click(TimeScheduler.TimeShift_Clicked)
+            .append(self.Options.Text.PrevButton)
+            .click(self.TimeShift_Clicked)
             .appendTo(timeContainer);
 
         $(document.createElement('a'))
             .addClass('time-sch-time-button time-sch-time-button-next time-sch-button')
             .attr({
                 href: '#',
-                title: TimeScheduler.Options.Text.NextButtonTitle
+                title: self.Options.Text.NextButtonTitle
             })
-            .append(TimeScheduler.Options.Text.NextButton)
-            .click(TimeScheduler.TimeShift_Clicked)
+            .append(self.Options.Text.NextButton)
+            .click(self.TimeShift_Clicked)
             .appendTo(timeContainer);
-    },
+    };
 
-    GotoTimeShift_Clicked: function (event) {
+    self.GotoTimeShift_Clicked = function (event) {
         event.preventDefault();
 
         $(document.createElement('input'))
@@ -1063,41 +1093,40 @@ var TimeScheduler = {
                     $(this).remove();
                 },
                 onSelect: function (date) {
-                    TimeScheduler.Options.Start = moment(date);
-                    TimeScheduler.Init();
+                    self.Options.Start = moment(date);
+                    self.Init();
                 },
-                defaultDate: TimeScheduler.Options.Start.toDate()
+                defaultDate: self.Options.Start.toDate()
             })
             .datepicker('show')
             .hide();
-    },
-    TimeShift_Clicked: function (event) {
+    };
+
+    self.TimeShift_Clicked = function (event) {
         var period;
 
         event.preventDefault();
-        period = TimeScheduler.GetSelectedPeriod();
+        period = self.GetSelectedPeriod();
 
         if ($(this).is('.time-sch-time-button-today')) {
-            TimeScheduler.Options.Start = moment().startOf('day');
-        }
-        else if ($(this).is('.time-sch-time-button-prev')) {
-            TimeScheduler.Options.Start.tsAdd('minutes', period.TimeframeOverall * -1);
-        }
-        else if ($(this).is('.time-sch-time-button-next')) {
-            TimeScheduler.Options.Start.tsAdd('minutes', period.TimeframeOverall);
+            self.Options.Start = moment().startOf('day');
+        } else if ($(this).is('.time-sch-time-button-prev')) {
+            self.Options.Start.tsAdd('minutes', period.TimeframeOverall * -1);
+        } else if ($(this).is('.time-sch-time-button-next')) {
+            self.Options.Start.tsAdd('minutes', period.TimeframeOverall);
         }
 
-        TimeScheduler.Init();
-    },
+        self.Init();
+    };
 
     /* Selects the period with the given name */
-    SelectPeriod: function (name) {
-        TimeScheduler.Options.SelectedPeriod = name;
-        TimeScheduler.Init();
-    },
+    self.SelectPeriod = function (name) {
+        self.Options.SelectedPeriod = name;
+        self.Init();
+    };
 
-    Period_Clicked: function (event) {
+    self.Period_Clicked = function (event) {
         event.preventDefault();
-        TimeScheduler.SelectPeriod($(this).data('period').Name);
-    }
+        self.SelectPeriod($(this).data('period').Name);
+    };
 };
