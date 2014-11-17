@@ -177,6 +177,8 @@ var TimeScheduler = function (Config) {
         // Should dragging be enabled?
         AllowDragging: false,
 
+        OnlyXAxis : false,
+
         // Should resizing be enabled?
         AllowResizing: false,
 
@@ -742,57 +744,60 @@ var TimeScheduler = function (Config) {
         }
 
         if (self.Options.AllowDragging) {
-            itemElem.draggable({
-                helper: 'clone',
-                zIndex: 1,
-                appendTo: self.SectionWrap,
-                distance: 5,
-                snap: '.time-sch-section-container',
-                snapMode: 'inner',
-                snapTolerance: 10,
-                drag: function (event, ui) {
-                    var item, start, end, period, periodEnd, minuteDiff;
+            itemElem
+                .attr('unselectable', 'on')
+                .css('user-select', 'none')
+                .on('selectstart', false)
+                .draggable({
+                    axis: self.Options.OnlyXAxis ? 'x' : '',
+                    helper: 'clone',
+                    zIndex: 1,
+                    appendTo: self.SectionWrap,
+                    distance: 5,
+                    snap: '.time-sch-section-container',
+                    snapMode: 'inner',
+                    snapTolerance: 10,
+                    drag: function (event, ui) {
+                        var item, start, end, period, periodEnd, minuteDiff;
+                        if (self.Options.Events.ItemMovement) {
+                            period = self.GetSelectedPeriod();
+                            periodEnd = self.GetEndOfPeriod(self.Options.Start, period);
+                            minuteDiff = Math.abs(self.Options.Start.diff(periodEnd, 'minutes'));
+                            item = $(event.target).data('item');
 
-                    if (self.Options.Events.ItemMovement) {
-                        period = self.GetSelectedPeriod();
-                        periodEnd = self.GetEndOfPeriod(self.Options.Start, period);
-                        minuteDiff = Math.abs(self.Options.Start.diff(periodEnd, 'minutes'));
+                            start = moment(self.Options.Start).tsAdd('minutes', minuteDiff * (ui.helper.position().left / self.SectionWrap.width()));
+                            end = moment(start).tsAdd('minutes', Math.abs(item.start.diff(item.end, 'minutes')));
 
-                        item = $(event.target).data('item');
+                            // If the start is before the start of our calendar, add the offset
+                            if (item.start < self.Options.Start) {
+                                start.tsAdd('minutes', item.start.diff(self.Options.Start, 'minutes'));
+                                end.tsAdd('minutes', item.start.diff(self.Options.Start, 'minutes'));
+                            }
 
-                        start = moment(self.Options.Start).tsAdd('minutes', minuteDiff * (ui.helper.position().left / self.SectionWrap.width()));
-                        end = moment(start).tsAdd('minutes', Math.abs(item.start.diff(item.end, 'minutes')));
+                            self.Options.Events.ItemMovement.call(this, item, start, end);
+                        }
+                    },
+                    start: function (event, ui) {
+                        $(this).hide();
 
-                        // If the start is before the start of our calendar, add the offset
-                        if (item.start < self.Options.Start) {
-                            start.tsAdd('minutes', item.start.diff(self.Options.Start, 'minutes'));
-                            end.tsAdd('minutes', item.start.diff(self.Options.Start, 'minutes'));
+                        // We only want content to show, not events or resizers
+                        ui.helper.children().not('.time-sch-item-content').remove();
+
+                        if (self.Options.Events.ItemMovementStart) {
+                            self.Options.Events.ItemMovementStart.call(this);
+                        }
+                    },
+                    stop: function (event, ui) {
+                        if ($(this).length) {
+                            $(this).show();
                         }
 
-                        self.Options.Events.ItemMovement.call(this, item, start, end);
-                    }
-                },
-                start: function (event, ui) {
-                    $(this).hide();
-
-                    // We only want content to show, not events or resizers
-                    ui.helper.children().not('.time-sch-item-content').remove();
-
-                    if (self.Options.Events.ItemMovementStart) {
-                        self.Options.Events.ItemMovementStart.call(this);
-                    }
-                },
-                stop: function (event, ui) {
-                    if ($(this).length) {
-                        $(this).show();
-                    }
-
-                    if (self.Options.Events.ItemMovementEnd) {
-                        self.Options.Events.ItemMovementEnd.call(this);
-                    }
-                },
-                cancel: '.time-sch-item-end, .time-sch-item-start, .time-sch-item-event'
-            });
+                        if (self.Options.Events.ItemMovementEnd) {
+                            self.Options.Events.ItemMovementEnd.call(this);
+                        }
+                    },
+                    cancel: '.time-sch-item-end, .time-sch-item-start, .time-sch-item-event'
+                });
 
             $('.time-sch-section-container').droppable({
                 greedy: true,
@@ -818,11 +823,17 @@ var TimeScheduler = function (Config) {
                     }
 
                     // Append original to this section and reposition it while we wait
-                    ui.draggable.appendTo($(this));
-                    ui.draggable.css({
-                        left: ui.helper.position().left - $(this).position().left,
-                        top: ui.helper.position().top - $(this).position().top
-                    });
+                    if (!self.Options.OnlyXAxis) {
+                        ui.draggable.appendTo($(this));
+                        ui.draggable.css({
+                            left: ui.helper.position().left - $(this).position().left,
+                            top: ui.helper.position().top - $(this).position().top
+                        });
+                    } else {
+                        ui.draggable.css({
+                            left: ui.helper.position().left - $(this).position().left
+                        });
+                    }
 
                     if (self.Options.DisableOnMove) {
                         if (ui.draggable.data('uiDraggable')) {

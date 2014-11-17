@@ -23,6 +23,9 @@
 /*! If possible, leave this file unchanged as it may screw up the scheduler's position */
 
 //== Wrap
+
+@import 'variables';
+
 .time-sch-wrapper, .time-sch-header-wrapper, .time-sch-table-wrapper {
 	position: relative;
 	}
@@ -195,7 +198,9 @@
 
 /*tonioblack*/
 .time-sch-section-group-head{
-  background-color: #ff0000;
+  background-color: $group-panel-bg-color;
+  color: $group-panel-color;
+  font-weight: $group-panel-font-weight;
   td{
     text-align: left;
   }

@@ -181,7 +181,9 @@
 }
 /*tonioblack*/
 .time-sch-section-group-head {
-  background-color: #ff0000;
+  background-color: #428bca;
+  color: #fff;
+  font-weight: bold;
 }
 .time-sch-section-group-head td {
   text-align: left;

@@ -5,7 +5,8 @@
 /// <reference path="moment.min.js" />
 /// <reference path="timelineScheduler.js" />
 
-var today = moment().startOf('day');
+var today = moment().startOf('day'),
+    ts;
 
 var Calendar = {
     Periods: [
@@ -48,7 +49,7 @@ var Calendar = {
         {
             id: 20,
             name: '<div>Item 1</div><div>Sub Info</div>',
-            sectionID: 1,
+            sectionID: 2,
             start: moment(today).add('days', -1),
             end: moment(today).add('days', 3),
             classes: 'item-status-three',
@@ -91,7 +92,56 @@ var Calendar = {
             name: '<div>Item 3</div>',
             start: moment(today).add('hours', 12),
             end: moment(today).add('days', 3).add('hours', 4),
-            sectionID: 1,
+            sectionID: 2,
+            classes: 'item-status-none'
+        },
+        {
+            id: 23,
+            name: '<div>Item 1</div><div>Sub Info</div>',
+            sectionID: 7,
+            start: moment(today).add('days', 0),
+            end: moment(today).add('days', 3),
+            classes: 'item-status-three',
+            events: [
+                {
+                    label: 'one',
+                    at: moment(today).add('hours', 6),
+                    classes: 'item-event-one'
+                },
+                {
+                    label: 'two',
+                    at: moment(today).add('hours', 10),
+                    classes: 'item-event-two'
+                },
+                {
+                    label: 'three',
+                    at: moment(today).add('hours', 11),
+                    classes: 'item-event-three'
+                }
+            ]
+        },
+        {
+            id: 24,
+            name: '<div>Item 2</div><div>Sub Info</div>',
+            sectionID: 8,
+            start: moment(today).add('days', 1),
+            end: moment(today).add('days', 4),
+            classes: 'item-status-one',
+            events: [
+                {
+                    icon: '',
+                    label: 'one',
+                    at: moment(today).add('hours', 6),
+                    classes: 'item-event-one'
+                }
+            ]
+        },
+        {
+            id: 22,
+            name: '<div>Item 3</div>',
+            start: moment(today).add('hours', 15),
+            end: moment(today).add('days', 3).add('hours', 4),
+            sectionID: 9,
             classes: 'item-status-none'
         }
     ],
@@ -99,43 +149,66 @@ var Calendar = {
     Sections: [
         {
             id: 1,
-            name: 'Section 1'
+            name: 'Group1',
+            isHead: true
         },
         {
             id: 2,
-            name: 'Section 2'
+            name: 'Section 1'
         },
         {
             id: 3,
+            name: 'Section 2'
+        },
+        {
+            id: 4,
             name: 'Section 3'
+        },
+        {
+            id: 5,
+            name: 'Group 2',
+            isHead: true
+        },
+        {
+            id: 6,
+            name: 'Section 4'
+        },
+        {
+            id: 7,
+            name: 'Section 5'
+        },
+        {
+            id: 8,
+            name: 'Section 6'
+        },
+        {
+            id: 9,
+            name: 'Section 7'
         }
     ],
 
     Init: function () {
-        TimeScheduler.Options.GetSections = Calendar.GetSections;
-        TimeScheduler.Options.GetSchedule = Calendar.GetSchedule;
-        TimeScheduler.Options.Start = today;
-        TimeScheduler.Options.Periods = Calendar.Periods;
-        TimeScheduler.Options.SelectedPeriod = '1 week';
-        TimeScheduler.Options.Element = $('.calendar');
-
-        TimeScheduler.Options.AllowDragging = true;
-        TimeScheduler.Options.AllowResizing = true;
-
-        TimeScheduler.Options.Events.ItemClicked = Calendar.Item_Clicked;
-        TimeScheduler.Options.Events.ItemDropped = Calendar.Item_Dragged;
-        TimeScheduler.Options.Events.ItemResized = Calendar.Item_Resized;
-
-        TimeScheduler.Options.Events.ItemMovement = Calendar.Item_Movement;
-        TimeScheduler.Options.Events.ItemMovementStart = Calendar.Item_MovementStart;
-        TimeScheduler.Options.Events.ItemMovementEnd = Calendar.Item_MovementEnd;
-
-        TimeScheduler.Options.Text.NextButton = '&nbsp;';
-        TimeScheduler.Options.Text.PrevButton = '&nbsp;';
-
-        TimeScheduler.Options.MaxHeight = 100;
-
-        TimeScheduler.Init();
+        ts = new TimeScheduler();
+        ts.Options.GetSections = Calendar.GetSections;
+        ts.Options.GetSchedule = Calendar.GetSchedule;
+        ts.Options.Start = today;
+        ts.Options.Periods = Calendar.Periods;
+        ts.Options.SelectedPeriod = '1 week';
+        ts.Options.Element = $('.calendar');
+        ts.Options.AllowDragging = true;
+        ts.Options.DisableOnMove = false;
+        ts.Options.OnlyXAxis = true;
+        ts.Options.AllowResizing = true;
+        ts.Options.Events.ItemClicked = Calendar.Item_Clicked;
+        ts.Options.Events.ItemDropped = Calendar.Item_Dragged;
+        ts.Options.Events.ItemResized = Calendar.Item_Resized;
+        ts.Options.Events.ItemMovement = Calendar.Item_Movement;
+        ts.Options.Events.ItemMovementStart = Calendar.Item_MovementStart;
+        ts.Options.Events.ItemMovementEnd = Calendar.Item_MovementEnd;
+        ts.Options.Text.NextButton = '&nbsp;';
+        ts.Options.Text.PrevButton = '&nbsp;';
+        ts.Options.MaxHeight = 100;
+        ts.Init();
     },
 
     GetSections: function (callback) {
@@ -170,7 +243,7 @@ var Calendar = {
             }
         }
 
-        TimeScheduler.Init();
+        //ts.Init();
     },
 
     Item_Resized: function (item, start, end) {
@@ -191,7 +264,7 @@ var Calendar = {
             }
         }
 
-        TimeScheduler.Init();
+        //TimeScheduler.Init();
     },
 
     Item_Movement: function (item, start, end) {
