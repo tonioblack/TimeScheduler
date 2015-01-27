@@ -788,12 +788,20 @@ var TimeScheduler = function (Config) {
                         }
                     },
                     stop: function (event, ui) {
+                        var item, start, end, period, periodEnd, minuteDiff;
                         if ($(this).length) {
                             $(this).show();
                         }
+                        period = self.GetSelectedPeriod();
+                        periodEnd = self.GetEndOfPeriod(self.Options.Start, period);
+                        minuteDiff = Math.abs(self.Options.Start.diff(periodEnd, 'minutes'));
+                        item = $(event.target).data('item');
+
+                        start = moment(self.Options.Start).tsAdd('minutes', minuteDiff * (ui.helper.position().left / self.SectionWrap.width()));
+                        end = moment(start).tsAdd('minutes', Math.abs(item.start.diff(item.end, 'minutes')));
 
                         if (self.Options.Events.ItemMovementEnd) {
-                            self.Options.Events.ItemMovementEnd.call(this);
+                            self.Options.Events.ItemMovementEnd.call(this, item, start, end);
                         }
                     },
                     cancel: '.time-sch-item-end, .time-sch-item-start, .time-sch-item-event'
