@@ -912,9 +912,7 @@ var TimeScheduler = function (Config) {
                     },
                     stop: function (event, ui) {
                         var item, start, end, period, periodEnd, minuteDiff, section, $this;
-
                         $this = $(this);
-
                         period = self.GetSelectedPeriod();
                         periodEnd = self.GetEndOfPeriod(self.Options.Start, period);
                         minuteDiff = Math.abs(self.Options.Start.diff(periodEnd, 'minutes'));
